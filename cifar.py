@@ -51,6 +51,8 @@ def createDir(folder):
   except Exception as e:
     print(e)
 
+createDir('./models')
+
 # compute HOG features for given images
 def computeHOG(hog, images):
   hogFeatures = []
@@ -68,10 +70,10 @@ def prepareData(hogFeatures):
 
 # Initialize HOG parameters
 winSize = (32, 32) # size of the window over the image
-blockSize = (8, 8) # step 4 block noramlization, oryginally 8x8
-blockStride = (4, 4) # step 4 block noramlization, the stride of the block
+blockSize = (8, 8) #  block noramlization step, oryginally 8x8
+blockStride = (4, 4) # block noramlization, the stride of the block
 cellSize = (4, 4) # ? size of the cell to compute histogram
-nbins = 9 # nuber of binss in the histogram
+nbins = 9 # number of bins in the histogram
 derivAperture = 1
 winSigma = -1
 histogramNormType = 0
@@ -117,23 +119,18 @@ if testModel:
     # Load model from saved file
     model = cv2.ml.SVM_load('./models/cifar10.yml')
     
-    
     train_data, train_filenames, train_labels, test_data, test_filenames, test_labels, _ = load.load_cifar_10_data('.')
 
     for i in range(1,10):
         testPosImages = test_data[test_labels == i]
         testPosLabels = test_labels[test_labels == i]
 
-        # Compute HOG features for images
         hogPosTest = computeHOG(hog, np.array(testPosImages))
         testPosData = prepareData(hogPosTest)
     
-        # Run classification on test data for positive images 
-        # and calculate True Positives and False Positives.
         posCorrect, posError = svmEvaluate(model, testPosData, 
                                         np.array(testPosLabels))
 
-        # Calculate True and False Positives
         tp = posCorrect
         fp = len(testPosLabels) - posCorrect
         print('Category: {}, Correct: {}, Failed: {}, Total: {}, error: {}'
@@ -143,24 +140,16 @@ if testModel:
     testPosImages = test_data
     testPosLabels = test_labels
 
-    # Compute HOG features for images
     hogPosTest = computeHOG(hog, np.array(testPosImages))
     testPosData = prepareData(hogPosTest)
 
-    # Run classification on test data for positive images 
-    # and calculate True Positives and False Positives.
     posCorrect, posError = svmEvaluate(model, testPosData, 
                                     np.array(testPosLabels))
 
-    # Calculate True and False Positives
     tp = posCorrect
     fp = len(testPosLabels) - posCorrect
     print('Category: {}, Correct: {}, Failed: {}, Total: {}, error: {}'
             .format('All', tp, fp, len(testPosLabels), posError))
 
-    # Calculate Precision and Recall
-    #precision = tp * 100 / (tp + fp)
-    #recall = tp * 100 / (tp + fn)
-    #print('Precision: {}, Recall: {}'.format(precision, recall))
 
 
