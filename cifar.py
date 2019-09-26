@@ -5,6 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import load
 
+label_names = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
+
 # Initialize SVM with parameters
 def svmInit(C, gamma):
   model = cv2.ml.SVM_create()
@@ -65,11 +67,11 @@ def prepareData(hogFeatures):
   return data
 
 # Initialize HOG parameters
-winSize = (8, 16)
-blockSize = (8, 8)
-blockStride = (4, 4)
-cellSize = (4, 4)
-nbins = 9
+winSize = (32, 32) # size of the window over the image
+blockSize = (8, 8) # step 4 block noramlization, oryginally 8x8
+blockStride = (4, 4) # step 4 block noramlization, the stride of the block
+cellSize = (4, 4) # ? size of the cell to compute histogram
+nbins = 9 # nuber of binss in the histogram
 derivAperture = 1
 winSigma = -1
 histogramNormType = 0
@@ -86,12 +88,12 @@ hog = cv2.HOGDescriptor(winSize, blockSize, blockStride,
 
 # Flags to turn on/off training or testing
 trainModel = False
-testModel = False
+testModel = True
 queryModel = False
 
 # ================================ Train Model =====================
 if trainModel:
-    train_data, train_filenames, train_labels, test_data, test_filenames, test_labels = load.load_cifar_10_data('.')
+    train_data, train_filenames, train_labels, test_data, test_filenames, test_labels, _ = load.load_cifar_10_data('.')
 
     # Now compute HOG features for training images and 
     # convert HOG descriptors to data format recognized by SVM.
@@ -108,58 +110,57 @@ if trainModel:
     # Initialize SVM object
     model = svmInit(C=0.01, gamma=0)
     svmTrain(model, trainData, train_labels)
-    model.save(DATA_PATH + 'models/cifar10.yml')
+    model.save('./models/cifar10.yml')
 
 # ================================ Test Model ===============
 if testModel:
     # Load model from saved file
-    model = cv2.ml.SVM_load(DATA_PATH + 'models/pedestrian.yml')
-    # We will evaluate our test dataset for positive and 
-    # negative images separately to calculate True/False Positives 
-    # and True/False Negatives
-    testPosDir = os.path.join(testDir, 'posPatches')
-    testNegDir = os.path.join(testDir, 'negPatches')
-    # We will follow the same flow to prepare data as we did for training images.
-    # Label 1 for positive images and -1 for negative images
-    testPosImages, testPosLabels = getDataset(testPosDir, 1)
-    testNegImages, testNegLabels = getDataset(testNegDir, -1)
+    model = cv2.ml.SVM_load('./models/cifar10.yml')
+    
+    
+    train_data, train_filenames, train_labels, test_data, test_filenames, test_labels, _ = load.load_cifar_10_data('.')
+
+    for i in range(1,10):
+        testPosImages = test_data[test_labels == i]
+        testPosLabels = test_labels[test_labels == i]
+
+        # Compute HOG features for images
+        hogPosTest = computeHOG(hog, np.array(testPosImages))
+        testPosData = prepareData(hogPosTest)
+    
+        # Run classification on test data for positive images 
+        # and calculate True Positives and False Positives.
+        posCorrect, posError = svmEvaluate(model, testPosData, 
+                                        np.array(testPosLabels))
+
+        # Calculate True and False Positives
+        tp = posCorrect
+        fp = len(testPosLabels) - posCorrect
+        print('Category: {}, Correct: {}, Failed: {}, Total: {}, error: {}'
+                .format(label_names[i], tp, fp, len(testPosLabels), posError))
+
+
+    testPosImages = test_data
+    testPosLabels = test_labels
 
     # Compute HOG features for images
     hogPosTest = computeHOG(hog, np.array(testPosImages))
     testPosData = prepareData(hogPosTest)
-    
+
     # Run classification on test data for positive images 
     # and calculate True Positives and False Positives.
     posCorrect, posError = svmEvaluate(model, testPosData, 
-                                       np.array(testPosLabels))
+                                    np.array(testPosLabels))
 
     # Calculate True and False Positives
     tp = posCorrect
     fp = len(testPosLabels) - posCorrect
-    print('TP: {}, FP: {}, Total: {}, error: {}'
-            .format(tp, fp, len(testPosLabels), posError))
-    # Similarly run classification on negative test data 
-    # and calculate True and False Negatives
-    # Test on negative images
-    hogNegTest = computeHOG(hog, np.array(testNegImages))
-    testNegData = prepareData(hogNegTest)
-    negCorrect, negError = svmEvaluate(model, testNegData, 
-                                       np.array(testNegLabels))
+    print('Category: {}, Correct: {}, Failed: {}, Total: {}, error: {}'
+            .format('All', tp, fp, len(testPosLabels), posError))
 
-    # Calculate True and False Negatives
-    tn = negCorrect
-    fn = len(testNegData) - negCorrect
-    print('TN: {}, FN: {}, Total: {}, error: {}'
-            .format(tn, fn, len(testNegLabels), negError))
     # Calculate Precision and Recall
-    precision = tp * 100 / (tp + fp)
-    recall = tp * 100 / (tp + fn)
-    print('Precision: {}, Recall: {}'.format(precision, recall))
+    #precision = tp * 100 / (tp + fp)
+    #recall = tp * 100 / (tp + fn)
+    #print('Precision: {}, Recall: {}'.format(precision, recall))
 
-train_data, train_filenames, train_labels, test_data, test_filenames, test_labels, label_names = load.load_cifar_10_data('.')
-label_names = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
-name = label_names[train_labels[0]]
-im = train_data[0]
-cv2.imshow(name, im)
-cv2.waitKey(0)
 
