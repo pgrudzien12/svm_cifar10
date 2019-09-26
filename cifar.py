@@ -91,7 +91,6 @@ hog = cv2.HOGDescriptor(winSize, blockSize, blockStride,
 # Flags to turn on/off training or testing
 trainModel = False
 testModel = True
-queryModel = False
 
 # ================================ Train Model =====================
 if trainModel:
